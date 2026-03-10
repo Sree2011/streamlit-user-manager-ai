@@ -1,0 +1,16 @@
+# Core
+streamlit
+python-dotenv
+
+# Database (MySQL)
+sqlalchemy
+pymysql  # easier cross-platform MySQL driver
+
+# Ollama Integration
+ollama   # Python client for Ollama
+
+# Utilities
+pandas
+requests
+numpy
+matplotlib
