@@ -4,7 +4,8 @@ python-dotenv
 
 # Database (MySQL)
 sqlalchemy
-pymysql  # easier cross-platform MySQL driver
+pymysql[rsa]  # easier cross-platform MySQL driver
+
 
 # Ollama Integration
 ollama   # Python client for Ollama
