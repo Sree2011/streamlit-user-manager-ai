@@ -6,17 +6,17 @@ from backend.services import extractor, matcher, ollama_api
 router = APIRouter()
 
 @router.post("/upload_resume")
-async def upload_resume(file: UploadFile = File(...)):
+def upload_resume(file: UploadFile = File(...)):
     """
     Upload a resume file (PDF/DOCX).
     Extract text and return raw content.
     """
-    content = await extractor.extract_text(file)
+    content = extractor.extract_text(file)
     return {"resume_text": content}
 
 
 @router.post("/analyze_resume")
-async def analyze_resume(resume_text: str = Form(...)):
+def analyze_resume(resume_text: str = Form(...)):
     """
     Extract skills from resume text.
     """
@@ -25,7 +25,7 @@ async def analyze_resume(resume_text: str = Form(...)):
 
 
 @router.post("/match_job")
-async def match_job(resume_text: str = Form(...), job_description: str = Form(...)):
+def match_job(resume_text: str = Form(...), job_description: str = Form(...)):
     """
     Compare resume with job description.
     Returns match score and LLM insights.

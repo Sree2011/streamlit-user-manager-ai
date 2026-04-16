@@ -14,7 +14,7 @@ SKILL_KEYWORDS = [
     "PostgreSQL", "MongoDB", "Azure", "Git", "CI/CD", "NLP", "LLM"
 ]
 
-async def extract_text(file):
+def extract_text(file):
     """
     Extract text from uploaded resume file (PDF or DOCX).
     """
@@ -24,7 +24,7 @@ async def extract_text(file):
         doc = docx.Document(file.file)
         content = "\n".join([para.text for para in doc.paragraphs])
     else:
-        content = await file.read()
+        content = file.read()
         content = content.decode("utf-8", errors="ignore")
 
     return content
