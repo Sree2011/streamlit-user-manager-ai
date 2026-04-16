@@ -14,6 +14,10 @@ Built with **FastAPI**, **spaCy**, and **Ollama LLMs**, deployed with **GitHub A
 - CI/CD pipeline via GitHub Actions
 
 ---
+## Prerequisites
+- Install Ollama: https://ollama.ai
+- Run `ollama serve` before starting FastAPI
+- Pull the model you want: `ollama pull llama2`
 
 ## 📂 Project Structure
 ```

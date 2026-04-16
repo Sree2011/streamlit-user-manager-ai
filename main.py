@@ -1,67 +1,42 @@
-# backend/main.py
+# backend/main.py (Streamlit UI)
 
-from fastapi import FastAPI
-from backend import routes
+import streamlit as st
+import requests
 
-# --- FastAPI setup ---
-app = FastAPI(
-    title="AI Resume Analyzer",
-    description="Analyze resumes and match them with job descriptions using NLP + Ollama",
-    version="0.2.0"
-)
+API_BASE = "http://localhost:8000"  # FastAPI backend
 
-# Include routes from routes.py
-app.include_router(routes.router)
+st.set_page_config(page_title="AI Resume Analyzer", layout="wide")
+st.title("📄 AI Resume Analyzer")
 
-@app.get("/")
-def root():
-    return {"message": "AI Resume Analyzer is running"}
+uploaded_file = st.sidebar.file_uploader("Upload Resume (PDF/DOCX/TXT)", type=["pdf", "docx", "txt"])
+job_description = st.text_area("Paste Job Description", height=200)
 
+if uploaded_file and st.button("Analyze Resume"):
+    # Step 1: Upload resume to backend
+    files = {"file": uploaded_file}
+    upload_response = requests.post(f"{API_BASE}/upload_resume", files=files)
+    resume_text = upload_response.json()["text"]
 
-# --- Streamlit UI ---
-# Run separately with: streamlit run backend/main.py
-try:
-    import streamlit as st
-    from backend.services import extractor, matcher, ollama_api
+    st.subheader("Resume Text Preview")
+    st.write(resume_text[:1000] + "...")
 
-    def run_ui():
-        st.title("📄 AI Resume Analyzer")
+    # Step 2: Analyze resume (skills)
+    analyze_response = requests.post(f"{API_BASE}/analyze_resume", json={"text": resume_text})
+    skills = analyze_response.json()["skills"]
 
-        st.sidebar.header("Upload Resume")
-        uploaded_file = st.sidebar.file_uploader("Choose a resume (PDF/DOCX)", type=["pdf", "docx", "txt"])
+    st.subheader("Extracted Skills")
+    st.write(skills)
 
-        job_description = st.text_area("Paste Job Description", height=200)
+    # Step 3: Match job (score + insights)
+    if job_description:
+        match_response = requests.post(
+            f"{API_BASE}/match_job",
+            json={"resume": {"text": resume_text}, "job": {"description": job_description}}
+        )
+        result = match_response.json()
 
-        if uploaded_file and st.button("Analyze Resume"):
-            # Extract text
-            resume_text = st.session_state.get("resume_text", None)
-            if not resume_text:
-                resume_text = extractor.extract_text(uploaded_file)
-                st.session_state["resume_text"] = resume_text
+        st.subheader("Match Score")
+        st.write(result["match_score"])
 
-            st.subheader("Resume Text")
-            st.write(resume_text[:1000] + "...")  # show preview
-
-            # Extract skills
-            skills = extractor.extract_skills(resume_text)
-            st.subheader("Extracted Skills")
-            st.write(skills)
-
-            # Match score
-            if job_description:
-                score = matcher.calculate_match(skills, job_description)
-                st.subheader("Match Score")
-                st.write(f"{score}%")
-
-                # Ollama insights
-                insights = ollama_api.get_llm_insights(resume_text, job_description)
-                st.subheader("LLM Insights")
-                st.write(insights)
-
-    # Only run Streamlit if executed directly
-    if __name__ == "__main__":
-        run_ui()
-
-except ImportError:
-    # Streamlit not installed or not running in UI mode
-    pass
+        st.subheader("LLM Insights")
+        st.write(result["llm_insights"])

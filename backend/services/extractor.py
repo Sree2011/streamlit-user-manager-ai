@@ -15,17 +15,21 @@ SKILL_KEYWORDS = [
 ]
 
 def extract_text(file):
-    """
-    Extract text from uploaded resume file (PDF or DOCX).
-    """
-    if file.filename.endswith(".pdf"):
+    if file is None:
+        return ""
+
+    file_name = file.filename.lower()
+    file.seek(0)
+
+    if file_name.endswith(".pdf"):
         content = pdf_extract(file.file)
-    elif file.filename.endswith(".docx"):
+
+    elif file_name.endswith(".docx"):
         doc = docx.Document(file.file)
         content = "\n".join([para.text for para in doc.paragraphs])
+
     else:
-        content = file.read()
-        content = content.decode("utf-8", errors="ignore")
+        content = file.read().decode("utf-8", errors="ignore")
 
     return content
 
