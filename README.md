@@ -1,7 +1,3 @@
-Here’s a solid **README.md** draft you can drop straight into your repo. It’s tailored for your setup (FastAPI, Ollama, GitHub Actions, no Docker):
-
----
-
 # AI Resume Analyzer
 
 An AI-powered tool to analyze resumes and match them with job descriptions.  
