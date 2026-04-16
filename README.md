@@ -45,7 +45,7 @@ ai-resume-analyzer/
 ## ⚙️ Installation
 ```bash
 # Clone repo
-git clone https://github.com/yourusername/ai-resume-analyzer.git
+git clone https://github.com/Sree2011/ai-resume-analyzer.git
 cd ai-resume-analyzer
 
 # Install dependencies

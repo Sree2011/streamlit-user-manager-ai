@@ -1,17 +1,27 @@
 # Core
+fastapi
+uvicorn
 streamlit
 python-dotenv
 
-# Database (MySQL)
+# Database (MySQL + SQLite)
 sqlalchemy
-pymysql[rsa]  # easier cross-platform MySQL driver
-sqlite3
+pymysql[rsa]   # MySQL driver
+# sqlite3 is built into Python, no need to list separately
 
 # Ollama Integration
 ollama   # Python client for Ollama
 
+# NLP / Resume Parsing
+spacy
+pdfminer.six   # for PDF parsing
+python-docx    # for DOCX parsing
+
 # Utilities
 pandas
-requests
 numpy
+requests
 matplotlib
+
+# Testing
+pytest
