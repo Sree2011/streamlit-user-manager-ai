@@ -1,36 +1,19 @@
+# backend/main.py
+
 from fastapi import FastAPI
-from pydantic import BaseModel
+from backend import routes
 
-app = FastAPI()
+# Create FastAPI app
+app = FastAPI(
+    title="AI Resume Analyzer",
+    description="Analyze resumes and match them with job descriptions using NLP + Ollama",
+    version="0.1.0"
+)
 
-# Data model
-class Book(BaseModel):
-    title: str
-    author: str
-    year: int
+# Include routes from routes.py
+app.include_router(routes.router)
 
-# In-memory "database"
-books = []
-
-@app.get("/books")
-def get_books():
-    return books
-
-@app.post("/books")
-def add_book(book: Book):
-    books.append(book)
-    return {"message": "Book added successfully!"}
-
-@app.put("/books/{index}")
-def update_book(index: int, book: Book):
-    if index < len(books):
-        books[index] = book
-        return {"message": "Book updated successfully!"}
-    return {"error": "Book not found"}
-
-@app.delete("/books/{index}")
-def delete_book(index: int):
-    if index < len(books):
-        books.pop(index)
-        return {"message": "Book deleted successfully!"}
-    return {"error": "Book not found"}
+# Root endpoint (health check)
+@app.get("/")
+def root():
+    return {"message": "AI Resume Analyzer is running"}

@@ -22,6 +22,7 @@ pandas
 numpy
 requests
 matplotlib
+pdfminer
 
 # Testing
 pytest
