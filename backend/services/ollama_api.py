@@ -1,15 +1,31 @@
 # backend/services/ollama_api.py
+from ollama import chat
+import os
 
-import requests
+def ollama_chat(prompt: str, model: str | None = None) -> str:
+    """
+    Call Ollama using the Python client.
+    Reads model name from environment variable unless overridden.
+    """
+    model_name = model or os.getenv("OLLAMA_MODEL_NAME", "llama2")
 
-OLLAMA_API_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "llama2"   # change to the model you have pulled in Ollama
+    messages = [
+        {"role": "user", "content": prompt}
+    ]
+
+    try:
+        response = chat(model=model_name, messages=messages)
+        content = getattr(response.message, "content", None)
+        return content.strip() if content else "No response content from Ollama."
+    except Exception as e:
+        return f"Ollama API error: {str(e)}"
+
+
 
 def get_llm_insights(resume_text: str, job_description: str) -> str:
     """
-    Call Ollama locally to generate insights about how well the resume matches the job description.
+    Generate insights comparing resume with job description.
     """
-
     prompt = f"""
     You are an AI Resume Analyzer.
     Compare the following resume with the job description.
@@ -22,16 +38,4 @@ def get_llm_insights(resume_text: str, job_description: str) -> str:
     {job_description}
     """
 
-    payload = {
-        "model": MODEL_NAME,
-        "prompt": prompt,
-        "stream": False
-    }
-
-    try:
-        response = requests.post(OLLAMA_API_URL, json=payload)
-        response.raise_for_status()
-        data = response.json()
-        return data.get("response", "").strip()
-    except Exception as e:
-        return f"Ollama API error: {str(e)}"
+    return ollama_chat(prompt, "llama2")

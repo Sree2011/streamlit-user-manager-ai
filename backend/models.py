@@ -13,3 +13,8 @@ class AnalysisResult(BaseModel):
     skills: List[str]
     match_score: float
     llm_insights: Optional[str] = None
+
+
+class MatchRequest(BaseModel):
+    resume: Resume
+    job: JobDescription

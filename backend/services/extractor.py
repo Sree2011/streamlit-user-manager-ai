@@ -19,7 +19,7 @@ def extract_text(file):
         return ""
 
     file_name = file.filename.lower()
-    file.seek(0)
+    file.file.seek(0)
 
     if file_name.endswith(".pdf"):
         content = pdf_extract(file.file)

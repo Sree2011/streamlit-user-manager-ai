@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, UploadFile, File, Form
 from backend.services import extractor, matcher, ollama_api
-from backend.models import Resume,AnalysisResult, JobDescription
+from backend.models import Resume,AnalysisResult, JobDescription, MatchRequest
 router = APIRouter()
 
 @router.post("/upload_resume", response_model=Resume)
@@ -30,14 +30,14 @@ def analyze_resume(resume: Resume):
 
 
 @router.post("/match_job", response_model=AnalysisResult)
-def match_job(resume: Resume, job: JobDescription):
+def match_job(matchresult: MatchRequest):
     """
     Compare resume with job description.
     Returns match score and LLM insights.
     """
-    skills = extractor.extract_skills(resume.text)
-    match_score = matcher.calculate_match(skills, job.description)
-    insights = ollama_api.get_llm_insights(resume.text, job.description)
+    skills = extractor.extract_skills(matchresult.resume.text)
+    match_score = matcher.calculate_match(skills, matchresult.job.description)
+    insights = ollama_api.get_llm_insights(matchresult.resume.text, matchresult.job.description)
 
     return AnalysisResult(skills=skills, match_score=match_score, llm_insights=insights)
 
