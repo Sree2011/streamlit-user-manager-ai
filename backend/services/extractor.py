@@ -14,7 +14,7 @@ SKILL_KEYWORDS = [
     "PostgreSQL", "MongoDB", "Azure", "Git", "CI/CD", "NLP", "LLM"
 ]
 
-def extract_text(file):
+async def extract_text(file):
     if file is None:
         return ""
 
@@ -34,7 +34,8 @@ def extract_text(file):
     return content
 
 
-def extract_skills(resume_text: str):
+
+async def extract_skills(resume_text: str):
     """
     Extract skills from resume text using regex + spaCy keyword matching.
     """
