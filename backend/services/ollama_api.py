@@ -1,47 +1,159 @@
-# backend/services/ollama_api.py
-from ollama import chat
-import os
-from typing import Generator
+import ollama
+import json
+import re
+from typing import List, Dict, AsyncGenerator
 
-def ollama_chat(prompt: str, model: str | None = "phi3") -> Generator[str, None, None]:
-    model_name: str = os.getenv("OLLAMA_MODEL_NAME", model or "phi3")
-    messages = [{"role": "user", "content": prompt}]
 
+# -------------------------------
+# 1. Prompt Generator
+# -------------------------------
+def build_prompt(resume_text: str, job_description: str) -> str:
+    return f"""
+You are a STRICT JSON generator.
+
+### OUTPUT RULES (MANDATORY)
+- Output ONLY valid JSON.
+- NO markdown, NO explanations, NO extra text.
+- Must be parseable using json.loads().
+- Do NOT include trailing commas.
+
+### JSON FORMAT (EXACT)
+[
+  {{
+    "skill_in_jd": "string",
+    "matched_in_resume": "Yes or No",
+    "evidence": "string"
+  }}
+]
+
+### EXTRACTION RULES
+- Extract ONLY technical skills (languages, frameworks, tools, concepts).
+- Ignore soft skills.
+- Normalize:
+  - Spring Boot → Spring
+  - MySQL → SQL
+  - REST API → REST
+- If missing → "matched_in_resume": "No"
+- Evidence must come ONLY from resume or "Not found".
+
+### INPUT
+JOB DESCRIPTION:
+{job_description}
+
+RESUME:
+{resume_text}
+
+### TASK
+Generate JSON array now.
+"""
+
+
+# -------------------------------
+# 2. Call Ollama (Blocking)
+# -------------------------------
+def call_ollama(prompt: str, model: str = "phi3") -> str:
+    response = ollama.chat(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        options={
+            "temperature": 0,
+            "top_p": 0.9,
+            "repeat_penalty": 1.2,
+        }
+    )
+    return response["message"]["content"]
+
+
+# -------------------------------
+# 3. Call Ollama (Streaming)
+# -------------------------------
+async def stream_ollama(prompt: str, model: str = "phi3") -> AsyncGenerator[str, None]:
+    """
+    Async generator that yields chunks of text from Ollama.
+    """
+    stream = ollama.chat(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        stream=True,
+        options={
+            "temperature": 0,
+            "top_p": 0.9,
+            "repeat_penalty": 1.2,
+        }
+    )
+    for chunk in stream:
+        if "message" in chunk and "content" in chunk["message"]:
+            yield chunk["message"]["content"]
+
+
+# -------------------------------
+# 4. Safe JSON Parsing
+# -------------------------------
+def extract_json(text: str) -> List[Dict]:
     try:
-        response = chat(model=model_name, messages=messages, stream=True)
-        for chunk in response:
-            yield chunk['message']['content']
-    except Exception as e:
-        yield f"Ollama API error: {str(e)}"
+        return json.loads(text)
+    except json.JSONDecodeError:
+        match = re.search(r"\[\s*{.*?}\s*\]", text, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+        else:
+            raise ValueError("Failed to extract valid JSON from model output.")
 
-def get_llm_insights(resume_text: str, job_description: str) -> Generator[str, None, None]:
-    """
-    Refined prompt to force a Markdown table and prevent resume regeneration.
-    """
-    prompt = f"""
-    [SYSTEM: TECHNICAL ANALYSIS MODE]
-    You are a data extraction tool. Your ONLY task is to compare skills.
-    
-    [RULES]
-    1. NEVER repeat the candidate's name, objective, or education.
-    2. NEVER rewrite the resume sentences.
-    3. ONLY output a Markdown table.
-    4. Start the response IMMEDIATELY with the table header.
-    
-    [OUTPUT EXAMPLE]
-    | Skill in JD | Matched in Resume | Evidence/Insight |
-    | :--- | :--- | :--- |
-    | Java | Yes | 2+ years at Accenture, Spring Boot projects. |
-    | React | Yes | Listed in technical stack. |
 
-    [DATA]
-    JOB DESCRIPTION:
-    {job_description}
+# -------------------------------
+# 5. Convert JSON → Markdown Table
+# -------------------------------
+def json_to_markdown(data: List[Dict]) -> str:
+    table = "| Skill in JD | Matched in Resume | Evidence/Insight |\n"
+    table += "| :--- | :--- | :--- |\n"
+    for item in data:
+        table += f"| {item.get('skill_in_jd','')} | {item.get('matched_in_resume','')} | {item.get('evidence','')} |\n"
+    return table
 
-    RESUME:
-    {resume_text}
 
-    [EXECUTE]
-    Start the table now:
-    """
-    return ollama_chat(prompt, "phi3")
+# -------------------------------
+# 6. Compute Match Score
+# -------------------------------
+def compute_match_score(data: List[Dict]) -> Dict:
+    total = len(data)
+    matched = sum(1 for d in data if d.get("matched_in_resume") == "Yes")
+    missing_skills = [d.get("skill_in_jd") for d in data if d.get("matched_in_resume") == "No"]
+    score = (matched / total) * 100 if total > 0 else 0
+    return {"match_percentage": round(score, 2), "missing_skills": missing_skills}
+
+
+# -------------------------------
+# 7. Main Pipeline Function (Blocking)
+# -------------------------------
+def analyze_resume(resume_text: str, job_description: str) -> Dict:
+    prompt = build_prompt(resume_text, job_description)
+    raw_output = call_ollama(prompt)
+    parsed_json = extract_json(raw_output)
+    markdown_table = json_to_markdown(parsed_json)
+    score_data = compute_match_score(parsed_json)
+    return {
+        "table": markdown_table,
+        "match_percentage": score_data["match_percentage"],
+        "missing_skills": score_data["missing_skills"],
+        "raw_json": parsed_json
+    }
+
+
+# -------------------------------
+# 8. Streaming Pipeline Function
+# -------------------------------
+async def stream_resume_analysis(resume_text: str, job_description: str):
+    prompt = build_prompt(resume_text, job_description)
+
+    # Ollama streaming call
+    stream = ollama.chat(
+        model="phi3",
+        messages=[{"role": "user", "content": prompt}],
+        stream=True,
+        options={"temperature": 0, "top_p": 0.9, "repeat_penalty": 1.2}
+    )
+
+    # Yield chunks incrementally
+    for chunk in stream:
+        if "message" in chunk and "content" in chunk["message"]:
+            yield chunk["message"]["content"]

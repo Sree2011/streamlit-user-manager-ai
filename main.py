@@ -28,32 +28,28 @@ if uploaded_file and st.button("Analyze Resume"):
     st.subheader("Extracted Skills")
     st.write(skills)
 
-    # Step 3: Match job (streaming score + insights)
+    # Step 3: Match job (plain JSON response)
     if job_description:
         st.subheader("Analysis Results")
-        
-        # We use stream=True to handle the StreamingResponse from FastAPI
-        with requests.post(
+
+        match_response = requests.post(
             f"{API_BASE}/match_job",
-            json={"resume": {"text": resume_text}, "job": {"description": job_description}},
-            stream=True
-        ) as response:
-            
-            # Extract metadata from custom headers
-            match_score = response.headers.get("X-Match-Score", "0.0")
-            raw_skills = response.headers.get("X-Skills", "[]")
-            matched_skills = json.loads(raw_skills)
+            json={"resume": {"text": resume_text}, "job": {"description": job_description}}
+        )
 
-            # Display Match Score
-            st.metric(label="Match Score", value=f"{match_score}%")
-            
-            # Display LLM Insights using streaming
-            st.subheader("LLM Insights")
-            
-            # Helper generator to decode chunks for st.write_stream
-            def stream_content():
-                for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
-                    if chunk:
-                        yield chunk
+        result = match_response.json()
 
-            st.write_stream(stream_content())
+        # Display Match Score
+        st.metric(label="Match Score", value=f"{result.get('match_percentage', result.get('match_score', 0))}%")
+
+        # Display Skills
+        st.subheader("Matched Skills")
+        st.write(result.get("skills", []))
+
+        # Display Missing Skills
+        st.subheader("Missing Skills")
+        st.write(result.get("missing_skills", []))
+
+        # Display Table
+        st.subheader("LLM Insights (Table)")
+        st.markdown(result.get("table", "No insights returned"))
