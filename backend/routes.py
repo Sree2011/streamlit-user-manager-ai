@@ -1,6 +1,7 @@
 # backend/routes.py
 
 from fastapi import APIRouter, UploadFile, File
+from fastapi.responses import StreamingResponse
 from backend.services import extractor, matcher, ollama_api
 from backend.models import Resume, AnalysisResult, MatchRequest
 import json
@@ -33,7 +34,7 @@ async def match_job(matchresult: MatchRequest):
     match_score = matcher.calculate_match(skills, matchresult.job.description)
 
     # Call Ollama synchronously for full analysis
-    result = ollama_api.analyze_resume(
+    result = ollama_api.match_job(
         matchresult.resume.text,
         matchresult.job.description
     )
@@ -45,3 +46,13 @@ async def match_job(matchresult: MatchRequest):
         "missing_skills": result["missing_skills"],
         "raw_json": result["raw_json"]
     }
+
+@router.post("/stream_match_job")
+async def stream_match_job(matchresult: MatchRequest):
+    """
+    Stream the LLM analysis for matching resume against job description.
+    """
+    return StreamingResponse(
+        ollama_api.stream_resume_analysis(matchresult.resume.text, matchresult.job.description),
+        media_type="text/plain"
+    )

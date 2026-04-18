@@ -5,9 +5,31 @@ from typing import List, Dict, AsyncGenerator
 
 
 # -------------------------------
+# 0. Text Cleaning
+# -------------------------------
+def clean_text(text: str) -> str:
+    """
+    Clean and normalize text by removing extra whitespaces and normalizing line breaks.
+    """
+    if not text:
+        return ""
+    # Replace multiple whitespaces with single space
+    text = re.sub(r'\s+', ' ', text)
+    # Remove leading/trailing whitespace
+    text = text.strip()
+    return text
+
+
+# -------------------------------
 # 1. Prompt Generator
 # -------------------------------
 def build_prompt(resume_text: str, job_description: str) -> str:
+    # Clean and truncate inputs to fit within model context limits
+    resume_text = clean_text(resume_text)
+    job_description = clean_text(job_description)
+    resume_text = resume_text[:2000] if len(resume_text) > 2000 else resume_text
+    job_description = job_description[:1000] if len(job_description) > 1000 else job_description
+    
     return f"""
 You are a STRICT JSON generator.
 
@@ -16,6 +38,7 @@ You are a STRICT JSON generator.
 - NO markdown, NO explanations, NO extra text.
 - Must be parseable using json.loads().
 - Do NOT include trailing commas.
+- Use double quotes for all JSON keys and string values.
 
 ### JSON FORMAT (EXACT)
 [
@@ -52,16 +75,21 @@ Generate JSON array now.
 # 2. Call Ollama (Blocking)
 # -------------------------------
 def call_ollama(prompt: str, model: str = "phi3") -> str:
-    response = ollama.chat(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        options={
-            "temperature": 0,
-            "top_p": 0.9,
-            "repeat_penalty": 1.2,
-        }
-    )
-    return response["message"]["content"]
+    try:
+        response = ollama.chat(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            options={
+                "temperature": 0,
+                "top_p": 0.9,
+                "repeat_penalty": 1.2,
+            }
+        )
+        return response["message"]["content"]
+    except Exception as e:
+        # If Ollama fails, return a default JSON response
+        print(f"Ollama error: {e}")
+        return '[{"skill_in_jd": "Error", "matched_in_resume": "No", "evidence": "Ollama service unavailable"}]' 
 
 
 # -------------------------------
@@ -93,10 +121,18 @@ def extract_json(text: str) -> List[Dict]:
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        match = re.search(r"\[\s*{.*?}\s*\]", text, re.DOTALL)
-        if match:
-            return json.loads(match.group())
-        else:
+        try:
+            # Try fixing single quotes to double quotes
+            fixed_text = text.replace("'", '"')
+            return json.loads(fixed_text)
+        except json.JSONDecodeError:
+            try:
+                match = re.search(r"\[\s*{.*?}\s*\]", text, re.DOTALL)
+                if match:
+                    fixed_match = match.group().replace("'", '"')
+                    return json.loads(fixed_match)
+            except json.JSONDecodeError:
+                pass
             raise ValueError("Failed to extract valid JSON from model output.")
 
 
@@ -125,7 +161,7 @@ def compute_match_score(data: List[Dict]) -> Dict:
 # -------------------------------
 # 7. Main Pipeline Function (Blocking)
 # -------------------------------
-def analyze_resume(resume_text: str, job_description: str) -> Dict:
+def match_job(resume_text: str, job_description: str) -> Dict:
     prompt = build_prompt(resume_text, job_description)
     raw_output = call_ollama(prompt)
     parsed_json = extract_json(raw_output)
