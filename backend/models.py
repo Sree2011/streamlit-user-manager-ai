@@ -1,7 +1,5 @@
-# backend/models.py
-
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 class Resume(BaseModel):
     text: str
@@ -18,3 +16,11 @@ class AnalysisResult(BaseModel):
 class MatchRequest(BaseModel):
     resume: Resume
     job: JobDescription
+
+
+class StreamMatchRequest(BaseModel):
+    resume: Optional[Resume] = None
+    job: Optional[JobDescription] = None
+    resume_skill_dict: Optional[Dict[str, int]] = None
+    jd_skill_dict: Optional[Dict[str, int]] = None
+    skill_comparison: Optional[Dict] = None

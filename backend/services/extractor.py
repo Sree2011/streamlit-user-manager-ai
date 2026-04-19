@@ -8,11 +8,26 @@ import docx
 # Load spaCy model (small English model is enough for skills extraction)
 nlp = spacy.load("en_core_web_sm")
 
-# Predefined skill keywords (expand as needed)
+# Predefined skill keywords and normalization rules
 SKILL_KEYWORDS = [
-    "Python", "Java", "FastAPI", "Spring Boot", "SQL", "MySQL",
-    "PostgreSQL", "MongoDB", "Azure", "Git", "CI/CD", "NLP", "LLM"
+    "Python", "Java", "FastAPI", "Spring Boot", "Spring", "SQL", "MySQL",
+    "PostgreSQL", "MongoDB", "Azure", "Git", "CI/CD", "NLP", "LLM",
+    "REST", "REST API", "REST APIs", "Angular", "React"
 ]
+
+SKILL_NORMALIZATION = {
+    "spring boot": "Spring",
+    "rest api": "REST",
+    "rest apis": "REST",
+    "mysql": "SQL",
+    "postgresql": "SQL",
+    "ci/cd": "CI/CD",
+    "ng": "Angular",
+    "reactjs": "React"
+}
+
+SKILL_LOOKUP = {keyword.lower(): SKILL_NORMALIZATION.get(keyword.lower(), keyword) for keyword in SKILL_KEYWORDS}
+SKILL_LOOKUP.update(SKILL_NORMALIZATION)
 
 async def extract_text(file):
     if file is None:
@@ -34,23 +49,39 @@ async def extract_text(file):
     return content
 
 
+def normalize_skill(skill: str) -> str:
+    return SKILL_LOOKUP.get(skill.strip().lower(), skill.strip())
+
+
+def extract_skill_dict(text: str) -> dict:
+    if not text:
+        return {}
+
+    skill_counts = {}
+    for keyword in SKILL_KEYWORDS:
+        pattern = re.compile(rf"\b{re.escape(keyword)}\b", re.IGNORECASE)
+        matches = pattern.findall(text)
+        if matches:
+            normalized = normalize_skill(keyword)
+            skill_counts[normalized] = skill_counts.get(normalized, 0) + len(matches)
+
+    return skill_counts
+
 
 async def extract_skills(resume_text: str):
     """
     Extract skills from resume text using regex + spaCy keyword matching.
     """
-    skills_found = set()
+    if not resume_text:
+        return []
 
-    # Regex keyword search
-    for skill in SKILL_KEYWORDS:
-        if re.search(rf"\b{skill}\b", resume_text, re.IGNORECASE):
-            skills_found.add(skill)
+    skills_found = set(extract_skill_dict(resume_text).keys())
 
-    # spaCy entity recognition (basic noun chunks)
     doc = nlp(resume_text)
     for chunk in doc.noun_chunks:
         token = chunk.text.strip()
-        if token in SKILL_KEYWORDS:
-            skills_found.add(token)
+        normalized = normalize_skill(token)
+        if normalized in SKILL_LOOKUP.values():
+            skills_found.add(normalized)
 
     return list(skills_found)
